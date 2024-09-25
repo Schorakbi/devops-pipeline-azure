@@ -93,16 +93,16 @@ resource "azurerm_linux_virtual_machine" "dop_k8s_vms" {
   name                = "k8s-${var.k8s_nodes[count.index]}"
   resource_group_name = azurerm_resource_group.dop_rg.name
   location            = azurerm_resource_group.dop_rg.location
-  size                = "Standard_B1s"
+  size                = "${count.index == 0 ? "Standard_F2" : "Standard_B1s"}"
   admin_username      = "adminuser"
   network_interface_ids = [
     azurerm_network_interface.dop_nic[count.index].id
   ]
-  custom_data = filebase64("${count.index == 0 ? "k8s-master-node-setup.tpl" : "k8s-worker-node-setup.tpl"}")
+  custom_data = filebase64("k8s-node-setup.tpl")
 
   admin_ssh_key {
     username   = "adminuser"
-    public_key = file("${count.index == 0 ? "~/.ssh/k8s-master-node-sshkey.pub" : "~/.ssh/k8s-worker-node-${count.index}-sshkey.pub"}")
+    public_key = file("${count.index == 0 ? "~/.ssh/k8s-controller-node-sshkey.pub" : "~/.ssh/k8s-worker-node-${count.index}-sshkey.pub"}")
   }
 
   os_disk {
@@ -136,3 +136,4 @@ output "vm_ip_addresses" {
     }
   ]
 }
+
