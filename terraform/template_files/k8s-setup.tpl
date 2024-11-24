@@ -1,7 +1,7 @@
 #!/bin/bash
-#
 # Common setup for all servers (Control Plane and Nodes)
-
+sudo apt update
+sudo su
 set -euxo pipefail
 
 # Kubernetes Version Declaration
@@ -75,10 +75,16 @@ sudo apt-get update -y
 # sudo chown $(id -u):$(id -g) $HOME/.kube/config
 # kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
 # kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.2/deploy/static/provider/baremetal/deploy.yaml
-# wget https://github.com/Shopify/kubeaudit/releases/download/v0.22.2/kubeaudit_0.22.2_linux_amd64.tar.gz
 
+# Security Scan k8s plugin
+# wget https://github.com/Shopify/kubeaudit/releases/download/v0.22.2/kubeaudit_0.22.2_linux_amd64.tar.gz
 # tar -xvzf kubeaudit_0.22.2_linux_amd64.tar.gz
 # sudo mv kubeaudit /usr/local/bin/
 # OR
 curl -L https://github.com/aquasecurity/kube-bench/releases/download/v0.8.0/kube-bench_0.8.0_linux_amd64.deb -o kube-bench_0.8.0_linux_amd64.deb
 sudo apt install ./kube-bench_0.8.0_linux_amd64.deb -f
+
+# Useful Commands :
+# sudo kubeadm token create --print-join-command
+# kubectl get nodes
+# cat /var/log/cloud-init-output.log

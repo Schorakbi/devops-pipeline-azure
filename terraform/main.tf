@@ -25,8 +25,8 @@ resource "azurerm_virtual_network" "dop_vn" {
 }
 
 resource "azurerm_subnet" "dop_subnet" {
-  count                = length(var.k8s_nodes)
-  name                 = "dop-subnet-${var.k8s_nodes[count.index]}"
+  count                = length(var.vms_config)
+  name                 = "dop-subnet-${count.index}"
   resource_group_name  = azurerm_resource_group.dop_rg.name
   virtual_network_name = azurerm_virtual_network.dop_vn.name
   address_prefixes     = ["10.0.${count.index + 1}.0/24"]
@@ -56,14 +56,14 @@ resource "azurerm_network_security_rule" "dop_dev_rule" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "dop_sga" {
-  for_each                  = { for idx, subnet in azurerm_subnet.dop_subnet : idx => subnet }
-  subnet_id                 = each.value.id
+  for_each                  = { for idx, subnet in azurerm_subnet.dop_subnet : idx => subnet.id }
+  subnet_id                 = each.value
   network_security_group_id = azurerm_network_security_group.dop_nsg.id
 }
 
 resource "azurerm_public_ip" "dop_ip" {
-  count               = length(var.k8s_nodes)
-  name                = "dop-${var.k8s_nodes[count.index]}-ip"
+  count               = length(var.vms_config)
+  name                = "dop-${var.vms_config[count.index].name}-ip"
   resource_group_name = azurerm_resource_group.dop_rg.name
   location            = azurerm_resource_group.dop_rg.location
   allocation_method   = "Dynamic"
@@ -75,8 +75,8 @@ resource "azurerm_public_ip" "dop_ip" {
 }
 
 resource "azurerm_network_interface" "dop_nic" {
-  count               = length(var.k8s_nodes)
-  name                = "dop-${var.k8s_nodes[count.index]}-nic"
+  count               = length(var.vms_config)
+  name                = "dop-${var.vms_config[count.index].name}-nic"
   location            = azurerm_resource_group.dop_rg.location
   resource_group_name = azurerm_resource_group.dop_rg.name
 
@@ -88,21 +88,22 @@ resource "azurerm_network_interface" "dop_nic" {
   }
 }
 
-resource "azurerm_linux_virtual_machine" "dop_k8s_vms" {
-  count               = length(var.k8s_nodes)
-  name                = "k8s-${var.k8s_nodes[count.index]}"
+resource "azurerm_linux_virtual_machine" "dop_vms" {
+  count               = length(var.vms_config)
+  name                = var.vms_config[count.index].name
   resource_group_name = azurerm_resource_group.dop_rg.name
   location            = azurerm_resource_group.dop_rg.location
-  size                = "${count.index == 0 ? "Standard_F2" : "Standard_B1s"}"
+  size                = var.vms_config[count.index].vm_size
   admin_username      = "adminuser"
   network_interface_ids = [
     azurerm_network_interface.dop_nic[count.index].id
   ]
-  custom_data = filebase64("k8s-node-setup.tpl")
+
+  custom_data = filebase64(var.vms_config[count.index].template_file)
 
   admin_ssh_key {
     username   = "adminuser"
-    public_key = file("${count.index == 0 ? "~/.ssh/k8s-controller-node-sshkey.pub" : "~/.ssh/k8s-worker-node-${count.index}-sshkey.pub"}")
+    public_key = file(var.vms_config[count.index].ssh_key_path)
   }
 
   os_disk {
@@ -123,17 +124,16 @@ resource "azurerm_linux_virtual_machine" "dop_k8s_vms" {
 }
 
 data "azurerm_public_ip" "dop_ip_data" {
-  count               = length(var.k8s_nodes)
+  count               = length(var.vms_config)
   name                = azurerm_public_ip.dop_ip[count.index].name
   resource_group_name = azurerm_resource_group.dop_rg.name
 }
 
 output "vm_ip_addresses" {
   value = [
-    for i in range(length(var.k8s_nodes)) : {
-      hostname  = azurerm_linux_virtual_machine.dop_k8s_vms[i].name
+    for i in range(length(var.vms_config)) : {
+      hostname  = azurerm_linux_virtual_machine.dop_vms[i].name
       public_ip = data.azurerm_public_ip.dop_ip_data[i].ip_address
     }
   ]
 }
-
